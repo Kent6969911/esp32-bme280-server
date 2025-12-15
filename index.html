@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BME280 Smart Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f4f4f4;
+    margin: 0;
+    padding: 15px;
+  }
+
+  h1 {
+    text-align: center;
+  }
+
+  .container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .card {
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    cursor: pointer;
+    transition: 0.3s;
+  }
+
+  .card.active {
+    border: 3px solid #007BFF;
+  }
+
+  .icon {
+    font-size: 45px;
+  }
+
+  .value {
+    font-size: 26px;
+    font-weight: bold;
+  }
+
+  .high-temp {
+    background: #ffcccc;
+  }
+
+  canvas {
+    margin-top: 20px;
+  }
+
+  @media (min-width: 768px) {
+    .container {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<h1>🌍 ESP32 BME280 Smart Dashboard</h1>
+
+<div class="container">
+
+  <div class="card" onclick="selectSensor('temperature', this)">
+    <div class="icon">🌡</div>
+    <h3>Temperature</h3>
+    <div class="value"><span id="temp">--</span> °C</div>
+  </div>
+
+  <div class="card" onclick="selectSensor('humidity', this)">
+    <div class="icon">💧</div>
+    <h3>Humidity</h3>
+    <div class="value"><span id="hum">--</span> %</div>
+  </div>
+
+  <div class="card" onclick="selectSensor('pressure', this)">
+    <div class="icon">⏲</div>
+    <h3>Pressure</h3>
+    <div class="value"><span id="pres">--</span> hPa</div>
+  </div>
+
+</div>
+
+<canvas id="chart" height="120"></canvas>
+
+<script>
+const url = "https://esp32-bme280.onrender.com/data"; // CHANGE IF NEEDED
+
+let currentSensor = "temperature";
+let history = {
+  temperature: [],
+  humidity: [],
+  pressure: []
+};
+
+const ctx = document.getElementById("chart");
+let chart = new Chart(ctx, {
+  type: "line",
+  data: {
+    labels: [],
+    datasets: [{
+      label: "Sensor Data",
+      data: [],
+      borderWidth: 2,
+      fill: false
+    }]
+  }
+});
+
+function selectSensor(sensor, card) {
+  currentSensor = sensor;
+
+  document.querySelectorAll(".card").forEach(c => c.classList.remove("active"));
+  card.classList.add("active");
+
+  updateChart();
+}
+
+function updateChart() {
+  chart.data.labels = history[currentSensor].map((_, i) => i + 1);
+  chart.data.datasets[0].data = history[currentSensor];
+  chart.data.datasets[0].label = currentSensor.toUpperCase();
+  chart.update();
+}
+
+setInterval(() => {
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById("temp").innerText = data.temperature.toFixed(1);
+      document.getElementById("hum").innerText = data.humidity.toFixed(1);
+      document.getElementById("pres").innerText = data.pressure.toFixed(1);
+
+      history.temperature.push(data.temperature);
+      history.humidity.push(data.humidity);
+      history.pressure.push(data.pressure);
+
+      if (history.temperature.length > 20) {
+        history.temperature.shift();
+        history.humidity.shift();
+        history.pressure.shift();
+      }
+
+      updateChart();
+
+      // 🔔 TEMPERATURE WARNING
+      const tempCard = document.querySelectorAll(".card")[0];
+      if (data.temperature > 35) {
+        tempCard.classList.add("high-temp");
+      } else {
+        tempCard.classList.remove("high-temp");
+      }
+    });
+}, 3000);
+</script>
+
+</body>
+</html>
