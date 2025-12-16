@@ -2,20 +2,24 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BME280 Smart Dashboard</title>
+<title>BME280 Dashboard</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
   body {
-    font-family: Arial, sans-serif;
+    font-family: Arial;
     background: #f4f4f4;
     margin: 0;
     padding: 15px;
   }
+  h1 { text-align: center; }
 
-  h1 {
-    text-align: center;
+  .logout {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    padding: 8px;
   }
 
   .container {
@@ -31,134 +35,106 @@
     text-align: center;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     cursor: pointer;
-    transition: 0.3s;
   }
 
-  .card.active {
-    border: 3px solid #007BFF;
-  }
+  .active { border: 3px solid #007BFF; }
+  .high-temp { background: #ffcccc; }
 
-  .icon {
-    font-size: 45px;
-  }
-
-  .value {
-    font-size: 26px;
-    font-weight: bold;
-  }
-
-  .high-temp {
-    background: #ffcccc;
-  }
-
-  canvas {
-    margin-top: 20px;
-  }
+  .icon { font-size: 40px; }
+  .value { font-size: 26px; font-weight: bold; }
 
   @media (min-width: 768px) {
-    .container {
-      grid-template-columns: repeat(3, 1fr);
-    }
+    .container { grid-template-columns: repeat(3, 1fr); }
   }
 </style>
 </head>
 
 <body>
 
-<h1>🌍 ESP32 BME280 Smart Dashboard</h1>
+<button class="logout" onclick="logout()">Logout</button>
+
+<h1>🌍 ESP32 BME280 Dashboard</h1>
 
 <div class="container">
-
-  <div class="card" onclick="selectSensor('temperature', this)">
+  <div class="card" onclick="select('temperature', this)">
     <div class="icon">🌡</div>
     <h3>Temperature</h3>
     <div class="value"><span id="temp">--</span> °C</div>
   </div>
 
-  <div class="card" onclick="selectSensor('humidity', this)">
+  <div class="card" onclick="select('humidity', this)">
     <div class="icon">💧</div>
     <h3>Humidity</h3>
     <div class="value"><span id="hum">--</span> %</div>
   </div>
 
-  <div class="card" onclick="selectSensor('pressure', this)">
+  <div class="card" onclick="select('pressure', this)">
     <div class="icon">⏲</div>
     <h3>Pressure</h3>
     <div class="value"><span id="pres">--</span> hPa</div>
   </div>
-
 </div>
 
 <canvas id="chart" height="120"></canvas>
 
 <script>
-const url = "https://esp32-bme280.onrender.com/data"; // CHANGE IF NEEDED
+/* 🔐 LOGIN CHECK — NAKA-INTEGRATE NA */
+if (localStorage.getItem("loggedIn") !== "true") {
+  window.location.href = "login.html";
+}
 
-let currentSensor = "temperature";
-let history = {
-  temperature: [],
-  humidity: [],
-  pressure: []
-};
+/* 🔧 CONFIG */
+const url = "https://esp32-bme280.onrender.com/data"; // PALITAN KUNG IBA SA'YO
 
-const ctx = document.getElementById("chart");
-let chart = new Chart(ctx, {
+let current = "temperature";
+let history = { temperature: [], humidity: [], pressure: [] };
+
+const chart = new Chart(document.getElementById("chart"), {
   type: "line",
-  data: {
-    labels: [],
-    datasets: [{
-      label: "Sensor Data",
-      data: [],
-      borderWidth: 2,
-      fill: false
-    }]
-  }
+  data: { labels: [], datasets: [{ data: [], borderWidth: 2 }] }
 });
 
-function selectSensor(sensor, card) {
-  currentSensor = sensor;
-
+function select(sensor, card) {
+  current = sensor;
   document.querySelectorAll(".card").forEach(c => c.classList.remove("active"));
   card.classList.add("active");
-
   updateChart();
 }
 
 function updateChart() {
-  chart.data.labels = history[currentSensor].map((_, i) => i + 1);
-  chart.data.datasets[0].data = history[currentSensor];
-  chart.data.datasets[0].label = currentSensor.toUpperCase();
+  chart.data.labels = history[current].map((_, i) => i + 1);
+  chart.data.datasets[0].data = history[current];
+  chart.data.datasets[0].label = current.toUpperCase();
   chart.update();
 }
 
+function logout() {
+  localStorage.removeItem("loggedIn");
+  window.location.href = "login.html";
+}
+
 setInterval(() => {
-  fetch(url)
-    .then(res => res.json())
-    .then(data => {
-      document.getElementById("temp").innerText = data.temperature.toFixed(1);
-      document.getElementById("hum").innerText = data.humidity.toFixed(1);
-      document.getElementById("pres").innerText = data.pressure.toFixed(1);
+  fetch(url).then(r => r.json()).then(d => {
+    temp.innerText = d.temperature.toFixed(1);
+    hum.innerText = d.humidity.toFixed(1);
+    pres.innerText = d.pressure.toFixed(1);
 
-      history.temperature.push(data.temperature);
-      history.humidity.push(data.humidity);
-      history.pressure.push(data.pressure);
+    history.temperature.push(d.temperature);
+    history.humidity.push(d.humidity);
+    history.pressure.push(d.pressure);
 
-      if (history.temperature.length > 20) {
-        history.temperature.shift();
-        history.humidity.shift();
-        history.pressure.shift();
-      }
+    if (history.temperature.length > 20) {
+      history.temperature.shift();
+      history.humidity.shift();
+      history.pressure.shift();
+    }
 
-      updateChart();
+    updateChart();
 
-      // 🔔 TEMPERATURE WARNING
-      const tempCard = document.querySelectorAll(".card")[0];
-      if (data.temperature > 35) {
-        tempCard.classList.add("high-temp");
-      } else {
-        tempCard.classList.remove("high-temp");
-      }
-    });
+    if (d.temperature > 35) {
+      document.querySelector(".card").classList.add("high-temp");
+    }
+  });
 }, 3000);
 </script>
 
