@@ -2,58 +2,57 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BME280 Dashboard</title>
-
+<title>ESP32 Sensors Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-  body {
-    font-family: Arial;
-    background: #f4f4f4;
-    margin: 0;
-    padding: 15px;
-  }
-  h1 { text-align: center; }
+body {
+  font-family: Arial;
+  background: #f4f4f4;
+  margin: 0;
+  padding: 15px;
+}
+h1 { text-align: center; }
 
-  .logout {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    padding: 8px;
-  }
+.logout {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  padding: 8px;
+}
 
-  .container {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 15px;
-  }
+.container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 15px;
+}
 
-  .card {
-    background: white;
-    padding: 20px;
-    border-radius: 15px;
-    text-align: center;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    cursor: pointer;
-  }
+.card {
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  text-align: center;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  cursor: pointer;
+}
 
-  .active { border: 3px solid #007BFF; }
-  .high-temp { background: #ffcccc; }
+.active { border: 3px solid #007BFF; }
+.high-temp { background: #ffcccc; }
 
-  .icon { font-size: 40px; }
-  .value { font-size: 26px; font-weight: bold; }
+.icon { font-size: 40px; }
+.value { font-size: 26px; font-weight: bold; }
 
-  @media (min-width: 768px) {
-    .container { grid-template-columns: repeat(3, 1fr); }
-  }
+@media (min-width: 768px) {
+  .container { grid-template-columns: repeat(2, 1fr); }
+}
 </style>
 </head>
 
 <body>
 
 <button class="logout" onclick="logout()">Logout</button>
-
-<h1>🌍 ESP32 BME280 Dashboard</h1>
+<h1>🌍 ESP32 Sensors Dashboard</h1>
+<p id="who" style="text-align:center;"></p>
 
 <div class="container">
   <div class="card" onclick="select('temperature', this)">
@@ -68,26 +67,35 @@
     <div class="value"><span id="hum">--</span> %</div>
   </div>
 
-  <div class="card" onclick="select('pressure', this)">
+  <div class="card" onclick="select('distance', this)">
     <div class="icon">⏲</div>
-    <h3>Pressure</h3>
-    <div class="value"><span id="pres">--</span> hPa</div>
+    <h3>Distance</h3>
+    <div class="value"><span id="dist">--</span> cm</div>
+  </div>
+
+  <div class="card" onclick="select('soil', this)">
+    <div class="icon">🌱</div>
+    <h3>Soil Moisture</h3>
+    <div class="value"><span id="soil">--</span></div>
   </div>
 </div>
 
 <canvas id="chart" height="120"></canvas>
 
 <script>
-/* 🔐 LOGIN CHECK — NAKA-INTEGRATE NA */
+// 🔐 LOGIN CHECK
 if (localStorage.getItem("loggedIn") !== "true") {
   window.location.href = "login.html";
 }
 
-/* 🔧 CONFIG */
-const url = "https://esp32-bme280.onrender.com/data"; // PALITAN KUNG IBA SA'YO
+document.getElementById("who").innerText =
+  "Logged in as: " + localStorage.getItem("currentUser");
+
+// CONFIG
+const url = "https://YOUR_RENDER_URL/data"; // PALITAN NG RENDER URL
 
 let current = "temperature";
-let history = { temperature: [], humidity: [], pressure: [] };
+let history = { temperature: [], humidity: [], distance: [], soil: [] };
 
 const chart = new Chart(document.getElementById("chart"), {
   type: "line",
@@ -110,33 +118,36 @@ function updateChart() {
 
 function logout() {
   localStorage.removeItem("loggedIn");
+  localStorage.removeItem("currentUser");
   window.location.href = "login.html";
 }
 
+// FETCH DATA EVERY 3 SECONDS
 setInterval(() => {
   fetch(url).then(r => r.json()).then(d => {
     temp.innerText = d.temperature.toFixed(1);
     hum.innerText = d.humidity.toFixed(1);
-    pres.innerText = d.pressure.toFixed(1);
+    dist.innerText = d.distance;
+    soil.innerText = d.soil;
 
     history.temperature.push(d.temperature);
     history.humidity.push(d.humidity);
-    history.pressure.push(d.pressure);
+    history.distance.push(d.distance);
+    history.soil.push(d.soil);
 
-    if (history.temperature.length > 20) {
-      history.temperature.shift();
-      history.humidity.shift();
-      history.pressure.shift();
-    }
+    // limit to 20 points
+    ["temperature","humidity","distance","soil"].forEach(k=>{
+      if(history[k].length>20) history[k].shift();
+    });
 
     updateChart();
 
-    if (d.temperature > 35) {
-      document.querySelector(".card").classList.add("high-temp");
-    }
+    // optional: high temp alert
+    if (d.temperature > 35) document.querySelector(".card").classList.add("high-temp");
   });
 }, 3000);
 </script>
 
 </body>
 </html>
+
