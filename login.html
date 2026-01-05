@@ -50,15 +50,26 @@
 </div>
 
 <script>
+const users = [
+  { username: "admin", password: "1234" },
+  { username: "teacher", password: "teach123" },
+  { username: "student", password: "stud123" }
+];
+
 function login() {
-  if (user.value === "admin" && pass.value === "1234") {
+  const u = user.value;
+  const p = pass.value;
+  const found = users.find(x => x.username === u && x.password === p);
+  if (found) {
     localStorage.setItem("loggedIn", "true");
+    localStorage.setItem("currentUser", u);
     window.location.href = "index.html";
   } else {
-    error.innerText = "Invalid login";
+    error.innerText = "Invalid username or password";
   }
 }
 </script>
 
 </body>
 </html>
+
